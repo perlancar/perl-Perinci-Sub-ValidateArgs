@@ -1,5 +1,13 @@
 Revision history for Perinci-Sub-ValidateArgs
 
+0.003   2016-05-23 (PERLANCAR)
+
+	- No functional changes.
+
+	- [Optimization] Minor optimization, we don't need to use validator
+	  with return_type=str+val but just str.
+
+
 0.002   2016-05-23 (PERLANCAR)
 
 	- [Bugfix] Set argument default value from arg spec property must
