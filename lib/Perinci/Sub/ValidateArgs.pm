@@ -1,4 +1,4 @@
-package Perinci::Sub::Util::ValidateArgs;
+package Perinci::Sub::ValidateArgs;
 
 # NOIFBUILT
 # DATE
@@ -18,11 +18,11 @@ sub validate_args {
     my $args = shift;
 
     my @caller = caller(1);
-    $caller[3] =~ s/.+:://;
-    my $meta = ${"$caller[0]::SPEC"}{$caller[3]}
-        or die "No metadata for $caller[0]::$caller[3]";
+    my ($pkg, $func) = $caller[3] =~ /(.+)::(.+)/;
+    my $meta = ${"$pkg\::SPEC"}{$func}
+        or die "No metadata for $caller[3]";
     ($meta->{args_as} || 'hash') eq 'hash'
-        or die "Metadata for $caller[0]::$caller[3]: only args_as=hash ".
+        or die "Metadata for $caller[3]: only args_as=hash ".
         "supported";
     my $args_spec = $meta->{args} or return undef;
     my $result_naked = $meta->{result_naked};
@@ -69,7 +69,7 @@ sub validate_args {
 =head1 SYNOPSIS
 
  #IFUNBUILT
- use Perinci::Sub::Util::ValidateArgs;
+ use Perinci::Sub::ValidateArgs;
  #END IFUNBUILT
 
  our %SPEC;

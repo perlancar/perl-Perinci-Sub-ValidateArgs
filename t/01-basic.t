@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Perinci::Sub::Util::ValidateArgs;
+use Perinci::Sub::ValidateArgs;
 use Test::More 0.98;
 
 our %SPEC;
