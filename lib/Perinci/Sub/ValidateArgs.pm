@@ -50,10 +50,10 @@ sub validate_args {
         my $validator = $validator_cache{$cache_key};
         if (!$validator) {
             $validator = Data::Sah::gen_validator(
-                $schema, {return_type=>'str+val'});
+                $schema, {return_type=>'str'});
             $validator_cache{$cache_key} = $validator;
         }
-        ($err, $args->{$arg_name}) = @{ $validator->($args->{$arg_name}) };
+        $err = $validator->($args->{$arg_name});
         if ($err) {
             $err = "Validation failed for argument '$arg_name': $err";
             if ($result_naked) { die $err } else { return [400, $err] }
