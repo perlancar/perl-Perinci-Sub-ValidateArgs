@@ -109,9 +109,9 @@ All the functions are exported by default.
 =head2 validate_args(\%args) => $err
 
 Get Rinci function metadata from caller's C<%SPEC> package variable. Then create
-(and cache) a set of L<Data::Sah> validator to check the value of each argument.
-If there is an error, will return an error response C<$err>. Otherwise will
-return undef.
+(and cache) a set of L<Data::Sah> validators to check the value of each argument
+in C<%args>. If there is an error, will return an error response C<$err> (or
+die, if C<result_naked> metadata property is true). Otherwise will return undef.
 
 Arguments in C<%args> will have their default values/coercions/filters applied,
 so they are ready for use.
