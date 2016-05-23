@@ -17,7 +17,7 @@ $SPEC{foo} = {
         },
         a2 => {
             schema => [array => of=>'int*'],
-            default => 'peach',
+            default => [1],
         },
     },
 };

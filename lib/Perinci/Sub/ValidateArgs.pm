@@ -41,6 +41,9 @@ sub validate_args {
             $err = "Missing required argument '$arg_name'";
             if ($result_naked) { die $err } else { return [400, $err] }
         }
+        if (!defined($args->{$arg_name}) && defined($arg_spec->{default})) {
+            $args->{$arg_name} = $arg_spec->{default};
+        }
         next unless exists $args->{$arg_name};
         my $schema = $arg_spec->{schema} or next;
         my $cache_key = ref($schema) ? "R:$schema" : "S:$schema";
@@ -49,9 +52,6 @@ sub validate_args {
             $validator = Data::Sah::gen_validator(
                 $schema, {return_type=>'str+val'});
             $validator_cache{$cache_key} = $validator;
-        }
-        if (!defined($args->{$arg_name}) && defined($arg_spec->{default})) {
-            $args->{$arg_name} = $arg_spec->{default};
         }
         ($err, $args->{$arg_name}) = @{ $validator->($args->{$arg_name}) };
         if ($err) {
