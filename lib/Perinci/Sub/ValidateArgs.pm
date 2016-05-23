@@ -64,7 +64,7 @@ sub validate_args {
 }
 
 1;
-# ABSTRACT: Validate function arguments
+# ABSTRACT: Validate function arguments using schemas in Rinci function metadata
 
 =head1 SYNOPSIS
 
@@ -85,9 +85,10 @@ sub validate_args {
              default => 'peach',
          },
      },
+     'x.func.validate_args' => 1,
  };
  sub foo {
-     my %args = @_;
+     my %args = @_; # VALIDATE_ARGS
      # IFUNBUILT
      if (my $err = validate_args(\%args)) { return $err }
      # END IFUNBUILT
@@ -98,8 +99,39 @@ sub validate_args {
 
 =head1 DESCRIPTION
 
-This is an experimental module to ease validating function arguments for
-unwrapped function.
+This module (PSV for short) can be used to validate function arguments using
+schema information in Rinci function metadata. Schemas will be checked using
+L<Data::Sah> validators which are generated on-demand and then cached.
+
+An alternative to this module is L<Dist::Zilla::Plugin::Rinci::Validate>
+(DZP:RV), where during build, the C<# VALIDATE_ARGS> directive will be filled
+with generated validator code.
+
+Using DZP:RV is faster (see/run the benchmark in
+L<Bencher::Scenario::PerinciSubValidateArgs::Overhead>), but you need to build
+the distribution first and use the built version. Using PSV is slower (up to
+several times, plus there is a startup overhead of compiling the Data::Sah
+validators the first time the function is called), but is more flexible because
+you don't have to build the distribution first.
+
+A strategy can be made using L<Dist::Zilla::Plugin::IfBuilt>. You mark the PSV
+parts with C<#IFUNBUILT> and C<#END IFUNBUILT> directives so the PSV part is
+only used in the unbuilt version, while the built/production version uses the
+faster DZP:RV.
+
+BTW, yet another alternative is to use L<Perinci::CmdLine::Lite> or
+L<Perinci::CmdLine::Inline>. These two frameworks can generate the argument
+validator code for you. But this only works if you access your function via CLI
+using the frameworks.
+
+And yet another alternative is L<Perinci::Sub::Wrapper> (PSW) which wraps your
+function with code to validate arguments (among others). PSW is used by
+L<Perinci::CmdLine::Classic>, for example.
+
+If you use DZP:RV and/or PSV, you might want to set Rinci metadata attribute
+C<x.func.validate_args> to true to express that your function body performs
+argument validation. This hint is used by PSW or the Perinci::CmdLine::*
+frameworks to skip (duplicate) argument validation.
 
 
 =head1 FUNCTIONS
@@ -124,3 +156,5 @@ Currently only support C<< args_as => 'hash' >> (the default).
 L<Rinci>, L<Data::Sah>
 
 L<Dist::Zilla::Plugin::IfBuilt>
+
+L<Dist::Zilla::Plugin::Rinci::Validate>
