@@ -1,5 +1,11 @@
 Revision history for Perinci-Sub-ValidateArgs
 
+0.002   2016-05-23 (PERLANCAR)
+
+	- [Bugfix] Set argument default value from arg spec property must
+	  be done even when $args{arg} does not exist.
+
+
 0.001   2016-05-23 (PERLANCAR)
 
          - First release.
