@@ -108,16 +108,19 @@ An alternative to this module is L<Dist::Zilla::Plugin::Rinci::Validate>
 with generated validator code.
 
 Using DZP:RV is faster (see/run the benchmark in
-L<Bencher::Scenario::PerinciSubValidateArgs::Overhead>), but you need to build
-the distribution first and use the built version. Using PSV is slower (up to
-several times, plus there is a startup overhead of compiling the Data::Sah
-validators the first time the function is called), but is more flexible because
-you don't have to build the distribution first.
+L<Bencher::Scenario::PerinciSubValidateArgs::Overhead>) and avoid dependencies
+on Data::Sah itself, but you need to build your code as a proper distribution
+first and use the built version. Using PSV is slower (up to several times, plus
+there is a startup overhead of compiling the Data::Sah validators the first time
+the function is called) and makes you dependent on Data::Sah during runtime, but
+is more flexible because you don't have to build your code as a distribution
+first.
 
 A strategy can be made using L<Dist::Zilla::Plugin::IfBuilt>. You mark the PSV
 parts with C<#IFUNBUILT> and C<#END IFUNBUILT> directives so the PSV part is
 only used in the unbuilt version, while the built/production version uses the
-faster DZP:RV.
+faster DZP:RV. But this still requires you to organize your code as a proper
+distribution.
 
 BTW, yet another alternative is to use L<Perinci::CmdLine::Lite> or
 L<Perinci::CmdLine::Inline>. These two frameworks can generate the argument
