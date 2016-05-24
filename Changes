@@ -1,5 +1,11 @@
 Revision history for Perinci-Sub-ValidateArgs
 
+0.005   2016-05-24 (PERLANCAR)
+
+	- Increase minimum prereq version Data::Sah to 0.76 due to changed
+	  error message format [RT#114616].
+
+
 0.004   2016-05-23 (PERLANCAR)
 
 	- No functional changes.
