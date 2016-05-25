@@ -4,63 +4,153 @@ package Perinci::Sub::ValidateArgs;
 # DATE
 # VERSION
 
+use 5.010001;
 use strict 'subs', 'vars';
 use warnings;
 
-use Data::Sah;
+use Data::Dmp;
 
 use Exporter qw(import);
-our @EXPORT = qw(validate_args);
+our @EXPORT = qw(gen_args_validator);
 
-my %validator_cache; # key = schema (C<string> or R<refaddr>), value = validator
+my %dsah_compile_cache; # key = schema (C<string> or R<refaddr>), value = compilation result
 
-sub validate_args {
-    my $args = shift;
+our %SPEC;
 
-    my @caller = caller(1);
-    my ($pkg, $func) = $caller[3] =~ /(.+)::(.+)/;
-    my $meta = ${"$pkg\::SPEC"}{$func}
-        or die "No metadata for $caller[3]";
-    ($meta->{args_as} || 'hash') eq 'hash'
-        or die "Metadata for $caller[3]: only args_as=hash ".
-        "supported";
-    my $args_spec = $meta->{args} or return undef;
-    my $result_naked = $meta->{result_naked};
-    my $err;
+$SPEC{gen_args_validator} = {
+    v => 1.1,
+    summary => 'Generate argument validator from Rinci function metadata',
+    args => {
+        meta => {
+            schema => 'hash*', # XXX rinci::function_meta
+            description => <<'_',
 
-    for my $arg_name (keys %$args) {
-        unless (exists $args_spec->{$arg_name}) {
-            $err = "Unknown argument '$arg_name'";
-            if ($result_naked) { die $err } else { return [400, $err] }
-        }
+If not specified, will be searched from caller's `%SPEC` package variable.
+
+_
+        },
+        source => {
+            summary => 'Whether we want to get the source code instead',
+            schema => 'bool',
+            description => <<'_',
+
+The default is to generate Perl validator code, compile it with `eval()`, and
+return the resulting coderef. When this option is set to true, the generated
+source string will be returned instead.
+
+_
+        },
+        dies => {
+            summary => 'Whether validator should die or just return '.
+                'an error message/response',
+            schema => 'bool',
+        },
+    },
+    result_naked => 1,
+};
+sub gen_args_validator {
+    my %args = @_;
+
+    my $meta = $args{meta};
+    unless ($meta) {
+        my @caller = caller(1) or die "Call gen_args_validator() inside ".
+            "your function or provide 'meta'";
+        my ($pkg, $func) = $caller[3] =~ /(.+)::(.+)/;
+        $meta = ${"$pkg\::SPEC"}{$func}
+            or die "No metadata for $caller[3]";
     }
+    my $args_as = $meta->{args_as} // 'hash';
+    my $meta_args = $meta->{args} // {};
+    my @meta_args = sort keys %$meta_args;
 
-    for my $arg_name (keys %$args_spec) {
-        my $arg_spec = $args_spec->{$arg_name};
-        if ($arg_spec->{req} && !exists($args->{$arg_name})) {
-            $err = "Missing required argument '$arg_name'";
-            if ($result_naked) { die $err } else { return [400, $err] }
+    my @code;
+    my %mod_stmts_cache;
+    my @mod_stmts;
+
+    my $gencode_err = sub {
+        my ($status, $term_msg) = @_;
+        if ($meta->{result_naked}) {
+            return "return $term_msg;";
+        } else {
+            return "return [$status, $term_msg];";
         }
-        if (!defined($args->{$arg_name}) && defined($arg_spec->{default})) {
-            $args->{$arg_name} = $arg_spec->{default};
+    };
+    my $gencode_validator = sub {
+        state $plc = do {
+            require Data::Sah;
+            Data::Sah->new->get_compiler("perl");
+        };
+        my ($schema, $data_name, $data_term) = @_;
+        my $cd;
+        my $cache_key = ref($schema) ? "R$schema" : "S$schema";
+        unless ($cd = $dsah_compile_cache{$cache_key}) {
+            $cd = $plc->compile(
+                schema       => $schema,
+                data_name    => $data_name,
+                data_term    => $data_term,
+                err_term     => '$err',
+                return_type  => 'str',
+                indent_level => 2,
+            );
+            $dsah_compile_cache{$cache_key} = $cd;
         }
-        next unless exists $args->{$arg_name};
-        my $schema = $arg_spec->{schema} or next;
-        my $cache_key = ref($schema) ? "R:$schema" : "S:$schema";
-        my $validator = $validator_cache{$cache_key};
-        if (!$validator) {
-            $validator = Data::Sah::gen_validator(
-                $schema, {return_type=>'str'});
-            $validator_cache{$cache_key} = $validator;
+        push @code, "        \$err = undef;\n";
+        push @code, "        \$_sahv_dpath = [];\n" if $cd->{use_dpath};
+        push @code, "        unless (\n";
+        push @code, $cd->{result}, ") { ".$gencode_err->(400, "\"Validation failed for argument '$data_name': \$err\"")." }\n";
+        for (@{ $cd->{modules} }) {
+            my $stmt;
+            if (my $ms = $cd->{module_statements}{$_}) {
+                $stmt = "$ms->[0] $_ (" . join(",", @{$ms->[1]}) . ");\n";
+            } else {
+                $stmt = "require $_;\n";
+            }
+            push @mod_stmts, $stmt unless $mod_stmts_cache{$stmt}++;
         }
-        $err = $validator->($args->{$arg_name});
-        if ($err) {
-            $err = "Validation failed for argument '$arg_name': $err";
-            if ($result_naked) { die $err } else { return [400, $err] }
+    };
+
+    push @code, "sub {\n";
+    push @code, "    my \$err;\n";
+    push @code, "    my \$_sahv_dpath;\n";
+    if ($args_as eq 'hash' || $args_as eq 'hashref') {
+        push @code, "    my \$args = shift;\n";
+        my $term_hash = '%$args';
+        my $codegen_term_hashkey = sub { '$args->{\''.$_[0].'\'}' };
+        push @code, "    # check unknown args\n";
+        push @code, "    for (keys $term_hash) { unless (/\\A(".join("|", map { quotemeta } @meta_args).")\\z/) { ".$gencode_err->(400, '"Unknown argument \'$_\'"')." } }\n";
+        push @code, "\n";
+
+        for my $arg_name (@meta_args) {
+            my $arg_spec = $meta_args->{$arg_name};
+            my $term_arg = $codegen_term_hashkey->($arg_name);
+            push @code, "    # check argument $arg_name\n";
+            if (defined $arg_spec->{default}) {
+                push @code, "    $term_arg //= ".dmp($arg_spec->{default}).";\n";
+            }
+            push @code, "    if (exists $term_arg) {\n";
+            push @code, $gencode_validator->($arg_spec->{schema}, $arg_name, $term_arg) if $arg_spec->{schema};
+            if ($arg_spec->{req}) {
+                push @code, "    } else {\n";
+                push @code, "        ".$gencode_err->(400, "\"Missing required argument '$arg_name'\"")."\n";
+            }
+            push @code, "    }\n";
         }
+
+        push @code, "\n" if @meta_args;
+    } else {
+        die "Unsupported args_as '$args_as'";
     }
-    # TODO: check args_rels
-    return undef;
+    push @code, "    return undef;\n";
+    push @code, "}\n";
+
+    my $code = join("", @mod_stmts, @code);
+    if ($args{source}) {
+        return $code;
+    } else {
+        my $sub = eval $code;
+        die if $@;
+        return $sub;
+    }
 }
 
 1;

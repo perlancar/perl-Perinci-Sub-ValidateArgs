@@ -1,5 +1,6 @@
 #!perl
 
+use 5.010001;
 use strict;
 use warnings;
 
@@ -22,8 +23,10 @@ $SPEC{foo} = {
     },
 };
 sub foo {
+    state $validator = gen_args_validator();
     my %args = @_;
-    if (my $err = validate_args(\%args)) { return $err }
+    if (my $err = $validator->(\%args)) { return $err }
+    my $args = @_;
     [200, "OK"];
 }
 
