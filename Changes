@@ -1,5 +1,14 @@
 Revision history for Perinci-Sub-ValidateArgs
 
+0.006   2016-05-25 (PERLANCAR)
+
+	- [Incompatible change] Change interface from validate_args() to
+          gen_args_validator() which should be faster.
+
+        - Move documentation about alternate ways of validating function/method
+	  arguments to Data::Sah::Manual::ParamsValidating.
+
+
 0.005   2016-05-24 (PERLANCAR)
 
 	- Increase minimum prereq version Data::Sah to 0.76 due to changed

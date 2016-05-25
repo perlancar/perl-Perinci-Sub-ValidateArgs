@@ -4,7 +4,7 @@ use 5.010001;
 use strict;
 use warnings;
 
-use Perinci::Sub::ValidateArgs;
+use Perinci::Sub::ValidateArgs qw(gen_args_validator);
 use Test::More 0.98;
 
 our %SPEC;

@@ -11,7 +11,7 @@ use warnings;
 use Data::Dmp;
 
 use Exporter qw(import);
-our @EXPORT = qw(gen_args_validator);
+our @EXPORT_OK = qw(gen_args_validator);
 
 my %dsah_compile_cache; # key = schema (C<string> or R<refaddr>), value = compilation result
 
@@ -158,9 +158,7 @@ sub gen_args_validator {
 
 =head1 SYNOPSIS
 
- #IFUNBUILT
- use Perinci::Sub::ValidateArgs;
- #END IFUNBUILT
+ use Perinci::Sub::ValidateArgs qw(gen_args_validator);
 
  our %SPEC;
  $SPEC{foo} = {
@@ -178,10 +176,9 @@ sub gen_args_validator {
      'x.func.validate_args' => 1,
  };
  sub foo {
-     my %args = @_; # VALIDATE_ARGS
-     # IFUNBUILT
-     if (my $err = validate_args(\%args)) { return $err }
-     # END IFUNBUILT
+     state $validator = gen_args_validator();
+     my %args = @_;
+     if (my $err = $validator->(\%args)) { return $err }
 
      ...
  }
@@ -190,28 +187,10 @@ sub gen_args_validator {
 =head1 DESCRIPTION
 
 This module (PSV for short) can be used to validate function arguments using
-schema information in Rinci function metadata. Schemas will be checked using
-L<Data::Sah> validators which are generated on-demand and then cached.
+schema information in Rinci function metadata.
 
 There are other ways if you want to validate function arguments using Sah
 schemas. See L<Data::Sah::Manual::ParamsValidating>.
-
-
-=head1 FUNCTIONS
-
-All the functions are exported by default.
-
-=head2 validate_args(\%args) => $err
-
-Get Rinci function metadata from caller's C<%SPEC> package variable. Then create
-(and cache) a set of L<Data::Sah> validators to check the value of each argument
-in C<%args>. If there is an error, will return an error response C<$err> (or
-die, if C<result_naked> metadata property is true). Otherwise will return undef.
-
-Arguments in C<%args> will have their default values/coercions/filters applied,
-so they are ready for use.
-
-Currently only support C<< args_as => 'hash' >> (the default).
 
 
 =head1 SEE ALSO
