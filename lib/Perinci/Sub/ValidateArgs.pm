@@ -40,7 +40,7 @@ source string will be returned instead.
 
 _
         },
-        dies => {
+        die => {
             summary => 'Whether validator should die or just return '.
                 'an error message/response',
             schema => 'bool',
@@ -69,7 +69,9 @@ sub gen_args_validator {
 
     my $gencode_err = sub {
         my ($status, $term_msg) = @_;
-        if ($meta->{result_naked}) {
+        if ($args{die}) {
+            return "die $term_msg;";
+        } elsif ($meta->{result_naked}) {
             return "return $term_msg;";
         } else {
             return "return [$status, $term_msg];";
