@@ -185,6 +185,17 @@ sub gen_args_validator {
      ...
  }
 
+or, if you want the validator to die on failure:
+
+ ...
+ sub foo {
+     state $validator = gen_args_validator(die => 1);
+     my %args = @_;
+     $validator->(\%args);
+
+     ...
+ }
+
 
 =head1 DESCRIPTION
 
