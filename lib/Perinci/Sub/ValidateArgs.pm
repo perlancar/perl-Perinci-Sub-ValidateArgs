@@ -13,7 +13,8 @@ use Data::Dmp;
 use Exporter qw(import);
 our @EXPORT_OK = qw(gen_args_validator);
 
-my %dsah_compile_cache; # key = schema (C<string> or R<refaddr>), value = compilation result
+# XXX cache key should also contain data_term
+#my %dsah_compile_cache; # key = schema (C<string> or R<refaddr>), value = compilation result
 
 our %SPEC;
 
@@ -72,6 +73,7 @@ sub gen_args_validator {
         if ($args{die}) {
             return "die $term_msg;";
         } elsif ($meta->{result_naked}) {
+            # perhaps if result_naked=1, die by default?
             return "return $term_msg;";
         } else {
             return "return [$status, $term_msg];";
@@ -85,7 +87,7 @@ sub gen_args_validator {
         my ($schema, $data_name, $data_term) = @_;
         my $cd;
         my $cache_key = ref($schema) ? "R$schema" : "S$schema";
-        unless ($cd = $dsah_compile_cache{$cache_key}) {
+        #unless ($cd = $dsah_compile_cache{$cache_key}) {
             $cd = $plc->compile(
                 schema       => $schema,
                 data_name    => $data_name,
@@ -94,8 +96,8 @@ sub gen_args_validator {
                 return_type  => 'str',
                 indent_level => 2,
             );
-            $dsah_compile_cache{$cache_key} = $cd;
-        }
+        #    $dsah_compile_cache{$cache_key} = $cd;
+        #}
         push @code, "        \$err = undef;\n";
         push @code, "        \$_sahv_dpath = [];\n" if $cd->{use_dpath};
         push @code, "        unless (\n";
@@ -112,19 +114,19 @@ sub gen_args_validator {
     };
 
     push @code, "sub {\n";
+    push @code, "    my \$args = shift;\n";
     push @code, "    my \$err;\n";
     push @code, "    my \$_sahv_dpath;\n";
+    push @code, "\n";
+
     if ($args_as eq 'hash' || $args_as eq 'hashref') {
-        push @code, "    my \$args = shift;\n";
-        my $term_hash = '%$args';
-        my $codegen_term_hashkey = sub { '$args->{\''.$_[0].'\'}' };
         push @code, "    # check unknown args\n";
-        push @code, "    for (keys $term_hash) { unless (/\\A(".join("|", map { quotemeta } @meta_args).")\\z/) { ".$gencode_err->(400, '"Unknown argument \'$_\'"')." } }\n";
+        push @code, "    for (keys %\$args) { unless (/\\A(".join("|", map { quotemeta } @meta_args).")\\z/) { ".$gencode_err->(400, '"Unknown argument \'$_\'"')." } }\n";
         push @code, "\n";
 
         for my $arg_name (@meta_args) {
             my $arg_spec = $meta_args->{$arg_name};
-            my $term_arg = $codegen_term_hashkey->($arg_name);
+            my $term_arg = "\$args->{'$arg_name'}";
             push @code, "    # check argument $arg_name\n";
             if (defined $arg_spec->{default}) {
                 push @code, "    $term_arg //= ".dmp($arg_spec->{default}).";\n";
@@ -139,6 +141,46 @@ sub gen_args_validator {
         }
 
         push @code, "\n" if @meta_args;
+    } elsif ($args_as eq 'array' || $args_as eq 'arrayref') {
+        # map the arguments' position
+        my @arg_names = sort {
+            ($meta_args->{$a}{pos}//9999) <=> ($meta_args->{$b}{pos}//9999)
+        } keys %$meta_args;
+        if (@arg_names && $meta_args->{$arg_names[-1]}{greedy}) {
+            my $pos = @arg_names - 1;
+            push @code, "    # handle slurpy last arg\n";
+            push @code, "    if (\@\$args >= $pos) { \$args->[$pos] = [splice \@\$args, $pos] }\n\n";
+        }
+        push @code, "    # check extraneous args\n";
+        push @code, "    if (\@\$args > ".(@arg_names).") { ".$gencode_err->(400, "\"Too many arguments (expected ".(@arg_names).", got \".(\@\$args)") . " }\n";
+        push @code, "\n";
+
+        for my $i (0..$#arg_names) {
+            my $arg_name = $arg_names[$i];
+            my $arg_spec = $meta_args->{$arg_name};
+            my $term_arg = "\$args->[$i]";
+            if (!defined($arg_spec->{pos})) {
+                die "Error in metadata: argument '$arg_name' does not ".
+                    "have pos property set";
+            } elsif ($arg_spec->{pos} != $i) {
+                die "Error in metadata: argument '$arg_name' does not ".
+                    "the correct pos value ($arg_spec->{pos}, should be $i)";
+            } elsif ($arg_spec->{greedy} && $i < $#arg_names) {
+                die "Error in metadata: argument '$arg_name' has greedy=1 ".
+                    "but is not the last argument";
+            }
+            push @code, "    # check argument $arg_name\n";
+            if (defined $arg_spec->{default}) {
+                push @code, "    $term_arg //= ".dmp($arg_spec->{default}).";\n";
+            }
+            push @code, "    if (\@\$args > $i) {\n";
+            push @code, $gencode_validator->($arg_spec->{schema}, $arg_name, $term_arg) if $arg_spec->{schema};
+            if ($arg_spec->{req}) {
+                push @code, "    } else {\n";
+                push @code, "        ".$gencode_err->(400, "\"Missing required argument '$arg_name'\"")."\n";
+            }
+            push @code, "    }\n";
+        }
     } else {
         die "Unsupported args_as '$args_as'";
     }
@@ -149,6 +191,7 @@ sub gen_args_validator {
     if ($args{source}) {
         return $code;
     } else {
+        #use String::LineNumber 'linenum'; say linenum $code;
         my $sub = eval $code;
         die if $@;
         return $sub;
