@@ -90,6 +90,29 @@ sub foo_args_as_arrayref {
     [200, "OK"];
 }
 
+$SPEC{bar} = {
+    v => 1.1,
+    args => {
+        a1 => {
+            schema => 'int*',
+            req => 1,
+            pos => 0,
+        },
+        a2 => {
+            schema => 'int',
+            default => 2,
+            pos => 1,
+        },
+    },
+    args_as => 'array',
+};
+sub bar {
+    state $validator = gen_args_validator();
+    my $args = [@_];
+    if (my $err = $validator->($args)) { return $err }
+    [200, "OK"];
+}
+
 subtest "basics" => sub {
     is_deeply(foo(),
               [400, "Missing required argument 'a1'"]);
@@ -129,6 +152,7 @@ subtest "meta:args_as=array" => sub {
     is_deeply(foo_args_as_array(2, 1), [200, "OK"]);
     is_deeply(foo_args_as_array(2, 1,2), [200, "OK"]);
     is_deeply(foo_args_as_array(2, 1,"x"), [400, "Validation failed for argument 'a2': \@[1]: Not of type integer"]);
+    is_deeply(bar(1, 2, 3), [400, "Too many arguments (expected 2, got 3)"]);
 };
 
 subtest "meta:args_as=arrayref" => sub {
