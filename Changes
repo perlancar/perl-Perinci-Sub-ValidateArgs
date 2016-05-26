@@ -1,5 +1,12 @@
 Revision history for Perinci-Sub-ValidateArgs
 
+0.010   2016-05-26 (PERLANCAR) (unreleased)
+
+        - [optimize] Some minor optimizations: no need to declare/set
+          $_sahv_dpath when not needed, reduce number of checks for wrong number
+          of arguments.
+
+
 0.009   2016-05-26 (PERLANCAR)
 
 	- No functional changes.
