@@ -152,7 +152,7 @@ sub gen_args_validator {
             push @code, "    if (\@\$args >= $pos) { \$args->[$pos] = [splice \@\$args, $pos] }\n\n";
         }
         push @code, "    # check extraneous args\n";
-        push @code, "    if (\@\$args > ".(@arg_names).") { ".$gencode_err->(400, "\"Too many arguments (expected ".(@arg_names).", got \".(\@\$args)") . " }\n";
+        push @code, "    if (\@\$args > ".(@arg_names).") { ".$gencode_err->(400, "\"Too many arguments (expected ".(@arg_names).", got \".(\@\$args).\")\"") . " }\n";
         push @code, "\n";
 
         for my $i (0..$#arg_names) {
