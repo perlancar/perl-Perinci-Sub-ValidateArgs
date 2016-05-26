@@ -68,6 +68,8 @@ sub gen_args_validator {
     my %mod_stmts_cache;
     my @mod_stmts;
 
+    my $use_dpath;
+
     my $gencode_err = sub {
         my ($status, $term_msg) = @_;
         if ($args{die}) {
@@ -79,7 +81,7 @@ sub gen_args_validator {
             return "return [$status, $term_msg];";
         }
     };
-    my $gencode_validator = sub {
+    my $addcode_validator = sub {
         state $plc = do {
             require Data::Sah;
             Data::Sah->new->get_compiler("perl");
@@ -111,13 +113,10 @@ sub gen_args_validator {
             }
             push @mod_stmts, $stmt unless $mod_stmts_cache{$stmt}++;
         }
+        if ($cd->{use_dpath}) {
+            $use_dpath = 1;
+        }
     };
-
-    push @code, "sub {\n";
-    push @code, "    my \$args = shift;\n";
-    push @code, "    my \$err;\n";
-    push @code, "    my \$_sahv_dpath;\n";
-    push @code, "\n";
 
     if ($args_as eq 'hash' || $args_as eq 'hashref') {
         push @code, "    # check unknown args\n";
@@ -132,7 +131,7 @@ sub gen_args_validator {
                 push @code, "    $term_arg //= ".dmp($arg_spec->{default}).";\n";
             }
             push @code, "    if (exists $term_arg) {\n";
-            push @code, $gencode_validator->($arg_spec->{schema}, $arg_name, $term_arg) if $arg_spec->{schema};
+            $addcode_validator->($arg_spec->{schema}, $arg_name, $term_arg) if $arg_spec->{schema};
             if ($arg_spec->{req}) {
                 push @code, "    } else {\n";
                 push @code, "        ".$gencode_err->(400, "\"Missing required argument '$arg_name'\"")."\n";
@@ -151,8 +150,29 @@ sub gen_args_validator {
             push @code, "    # handle slurpy last arg\n";
             push @code, "    if (\@\$args >= $pos) { \$args->[$pos] = [splice \@\$args, $pos] }\n\n";
         }
-        push @code, "    # check extraneous args\n";
-        push @code, "    if (\@\$args > ".(@arg_names).") { ".$gencode_err->(400, "\"Too many arguments (expected ".(@arg_names).", got \".(\@\$args).\")\"") . " }\n";
+
+        my $start_of_optional;
+        for my $i (0..$#arg_names) {
+            my $arg_name = $arg_names[$i];
+            my $arg_spec = $meta_args->{$arg_name};
+            if ($arg_spec->{req}) {
+                if (defined $start_of_optional) {
+                    die "Error in metadata: after a param is optional ".
+                        "(#$start_of_optional) the rest (#$i) must also be optional";
+                }
+            } else {
+                $start_of_optional //= $i;
+            }
+        }
+
+        push @code, "    # check number of args\n";
+        if ($start_of_optional) {
+            push @code, "    if (\@\$args < $start_of_optional || \@\$args > ".(@arg_names).") { ".$gencode_err->(400, "\"Wrong number of arguments (expected $start_of_optional..".(@arg_names).", got \".(\@\$args).\")\"") . " }\n";
+        } elsif (defined $start_of_optional) {
+            push @code, "    if (\@\$args > ".(@arg_names).") { ".$gencode_err->(400, "\"Wrong number of arguments (expected 0..".(@arg_names).", got \".(\@\$args).\")\"") . " }\n";
+        } else {
+            push @code, "    if (\@\$args != ".(@arg_names).") { ".$gencode_err->(400, "\"Wrong number of arguments (expected ".(@arg_names).", got \".(\@\$args).\")\"") . " }\n";
+        }
         push @code, "\n";
 
         for my $i (0..$#arg_names) {
@@ -173,19 +193,29 @@ sub gen_args_validator {
             if (defined $arg_spec->{default}) {
                 push @code, "    $term_arg //= ".dmp($arg_spec->{default}).";\n";
             }
-            push @code, "    if (\@\$args > $i) {\n";
-            push @code, $gencode_validator->($arg_spec->{schema}, $arg_name, $term_arg) if $arg_spec->{schema};
-            if ($arg_spec->{req}) {
-                push @code, "    } else {\n";
-                push @code, "        ".$gencode_err->(400, "\"Missing required argument '$arg_name'\"")."\n";
+            my $open_block;
+            if (defined($start_of_optional) && $i >= $start_of_optional) {
+                $open_block++;
+                push @code, "    if (\@\$args > $i) {\n";
             }
-            push @code, "    }\n";
+            $addcode_validator->($arg_spec->{schema}, $arg_name, $term_arg) if $arg_spec->{schema};
+            push @code, "    }\n" if $open_block;
+
+            push @code, "\n";
         }
     } else {
         die "Unsupported args_as '$args_as'";
     }
     push @code, "    return undef;\n";
     push @code, "}\n";
+
+    unshift @code, (
+        "sub {\n",
+        "    my \$args = shift;\n",
+        "    my \$err;\n",
+        ("    my \$_sahv_dpath;\n") x !!$use_dpath,
+        "\n"
+    );
 
     my $code = join("", @mod_stmts, @code);
     if ($args{source}) {
