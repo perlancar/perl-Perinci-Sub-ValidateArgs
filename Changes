@@ -1,5 +1,14 @@
 Revision history for Perinci-Sub-ValidateArgs
 
+0.009   2016-05-26 (PERLANCAR)
+
+	- No functional changes.
+
+	- Add test: checking too many arguments.
+
+	- Fix missing closing parenthesis in generated error message.
+
+
 0.008   2016-05-25 (PERLANCAR)
 
         - Support args_as=array & args_as=arrayref.
