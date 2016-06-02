@@ -146,17 +146,17 @@ subtest "meta:args_as=hashref" => sub {
 };
 
 subtest "meta:args_as=array" => sub {
-    is_deeply(foo_args_as_array(), [400, "Missing required argument 'a1'"]);
+    is_deeply(foo_args_as_array(), [400, "Wrong number of arguments (expected 1..2, got 0)"]);
     is_deeply(foo_args_as_array(2), [200, "OK"]);
     is_deeply(foo_args_as_array("x"), [400, "Validation failed for argument 'a1': Not of type integer"]);
     is_deeply(foo_args_as_array(2, 1), [200, "OK"]);
     is_deeply(foo_args_as_array(2, 1,2), [200, "OK"]);
     is_deeply(foo_args_as_array(2, 1,"x"), [400, "Validation failed for argument 'a2': \@[1]: Not of type integer"]);
-    is_deeply(bar(1, 2, 3), [400, "Too many arguments (expected 2, got 3)"]);
+    is_deeply(bar(1, 2, 3), [400, "Wrong number of arguments (expected 1..2, got 3)"]);
 };
 
 subtest "meta:args_as=arrayref" => sub {
-    is_deeply(foo_args_as_arrayref([]), [400, "Missing required argument 'a1'"]);
+    is_deeply(foo_args_as_arrayref([]), [400, "Wrong number of arguments (expected 1..2, got 0)"]);
     is_deeply(foo_args_as_arrayref([2]), [200, "OK"]);
     is_deeply(foo_args_as_arrayref(["x"]), [400, "Validation failed for argument 'a1': Not of type integer"]);
     is_deeply(foo_args_as_arrayref([2, 1]), [200, "OK"]);
