@@ -65,7 +65,7 @@ sub gen_args_validator {
     my @meta_args = sort keys %$meta_args;
 
     my @code;
-    my %mod_stmts_cache;
+    my @modules_for_all_args;
     my @mod_stmts;
 
     my $use_dpath;
@@ -98,20 +98,19 @@ sub gen_args_validator {
                 return_type  => 'str',
                 indent_level => 2,
             );
+        die "Incompatible Data::Sah version (cd v=$cd->{v}, expected 2)" unless $cd->{v} == 2;
         #    $dsah_compile_cache{$cache_key} = $cd;
         #}
         push @code, "        \$err = undef;\n";
         push @code, "        \$_sahv_dpath = [];\n" if $cd->{use_dpath};
         push @code, "        unless (\n";
         push @code, $cd->{result}, ") { ".$gencode_err->(400, "\"Validation failed for argument '$data_name': \$err\"")." }\n";
-        for (@{ $cd->{modules} }) {
-            my $stmt;
-            if (my $ms = $cd->{module_statements}{$_}) {
-                $stmt = "$ms->[0] $_ (" . join(",", @{$ms->[1]}) . ");\n";
-            } else {
-                $stmt = "require $_;\n";
-            }
-            push @mod_stmts, $stmt unless $mod_stmts_cache{$stmt}++;
+        for my $mod_rec (@{ $cd->{modules} }) {
+            next unless $mod_rec->{phase} eq 'runtime';
+            next if grep { ($mod_rec->{use_statement} && $_->{use_statement} && $_->{use_statement} eq $mod_rec->{use_statement}) ||
+                               $_->{name} eq $mod_rec->{name} } @modules_for_all_args;
+            push @modules_for_all_args, $mod_rec;
+            push @mod_stmts, $plc->stmt_require_module($mod_rec)."\n";
         }
         if ($cd->{use_dpath}) {
             $use_dpath = 1;
