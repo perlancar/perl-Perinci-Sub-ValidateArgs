@@ -1,5 +1,3 @@
-Revision history for Perinci-Sub-ValidateArgs
-
 0.010   2016-06-02 (PERLANCAR)
 
         - [optimize] Some minor optimizations: no need to declare/set
