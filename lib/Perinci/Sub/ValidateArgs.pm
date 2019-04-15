@@ -144,7 +144,7 @@ sub gen_args_validator {
         my @arg_names = sort {
             ($meta_args->{$a}{pos}//9999) <=> ($meta_args->{$b}{pos}//9999)
         } keys %$meta_args;
-        if (@arg_names && $meta_args->{$arg_names[-1]}{greedy}) {
+        if (@arg_names && ($meta_args->{$arg_names[-1]}{slurpy} // $meta_args->{$arg_names[-1]}{greedy})) {
             my $pos = @arg_names - 1;
             push @code, "    # handle slurpy last arg\n";
             push @code, "    if (\@\$args >= $pos) { \$args->[$pos] = [splice \@\$args, $pos] }\n\n";
@@ -184,8 +184,8 @@ sub gen_args_validator {
             } elsif ($arg_spec->{pos} != $i) {
                 die "Error in metadata: argument '$arg_name' does not ".
                     "the correct pos value ($arg_spec->{pos}, should be $i)";
-            } elsif ($arg_spec->{greedy} && $i < $#arg_names) {
-                die "Error in metadata: argument '$arg_name' has greedy=1 ".
+            } elsif (($arg_spec->{slurpy} // $arg_spec->{greedy}) && $i < $#arg_names) {
+                die "Error in metadata: argument '$arg_name' has slurpy=1 ".
                     "but is not the last argument";
             }
             push @code, "    # check argument $arg_name\n";
