@@ -12,7 +12,7 @@ use warnings;
 use Data::Dmp;
 
 use Exporter qw(import);
-our @EXPORT_OK = qw(gen_args_validator);
+our @EXPORT_OK = qw(gen_args_validator_from_meta validate_args_using_meta);
 
 # old name, deprecated
 *gen_args_validator = \&gen_args_validator_from_meta;
@@ -21,6 +21,48 @@ our @EXPORT_OK = qw(gen_args_validator);
 #my %dsah_compile_cache; # key = schema (C<string> or R<refaddr>), value = compilation result
 
 our %SPEC;
+
+our %arg_meta = (
+    meta => {
+        schema => 'hash*', # XXX rinci::function_meta
+        req => 1,
+    },
+);
+
+our %argopt_meta = (
+    meta => {
+        schema => 'hash*', # XXX rinci::function_meta
+        description => <<'_',
+
+If not specified, will be searched from caller's `%SPEC` package variable.
+
+_
+    },
+);
+
+our %argopt_die = (
+    die => {
+        summary => 'Whether validator should die or just return '.
+            'an error message/response',
+        schema => 'bool',
+    },
+);
+
+our %args_gen_args = (
+    %argopt_meta,
+    %argopt_die,
+    source => {
+        summary => 'Whether we want to get the source code instead',
+        schema => 'bool',
+        description => <<'_',
+
+The default is to generate Perl validator code, compile it with `eval()`, and
+return the resulting coderef. When this option is set to true, the generated
+source string will be returned instead.
+
+_
+    },
+);
 
 $SPEC{gen_args_validator_from_meta} = {
     v => 1.1,
@@ -32,30 +74,7 @@ If you don't intend to reuse the generated validator, you can also use
 
 _
     args => {
-        meta => {
-            schema => 'hash*', # XXX rinci::function_meta
-            description => <<'_',
-
-If not specified, will be searched from caller's `%SPEC` package variable.
-
-_
-        },
-        source => {
-            summary => 'Whether we want to get the source code instead',
-            schema => 'bool',
-            description => <<'_',
-
-The default is to generate Perl validator code, compile it with `eval()`, and
-return the resulting coderef. When this option is set to true, the generated
-source string will be returned instead.
-
-_
-        },
-        die => {
-            summary => 'Whether validator should die or just return '.
-                'an error message/response',
-            schema => 'bool',
-        },
+        %args_gen_args,
     },
     result_naked => 1,
 };
@@ -236,6 +255,34 @@ sub gen_args_validator_from_meta {
         return $sub;
     }
 }
+
+$SPEC{validate_args_validator_using_meta} = {
+    v => 1.1,
+    summary => 'Validate arguments using Rinci function metadata',
+    description => <<'_',
+
+If you intend to reuse the generated validator, you can also use
+`gen_args_validator_from_meta`.
+
+_
+    args => {
+        %arg_meta,
+        %argopt_die,
+        args => {
+            schema => 'hash*',
+            req => 1,
+        },
+    },
+};
+sub validate_args_using_meta {
+    my %args = @_;
+
+    my $validator = gen_args_validator_from_meta(
+        meta => $args{meta},
+        die  => $args{die},
+    );
+    $validator->($args{args}) // [200, "OK"];
+};
 
 1;
 # ABSTRACT: Validate function arguments using schemas in Rinci function metadata
