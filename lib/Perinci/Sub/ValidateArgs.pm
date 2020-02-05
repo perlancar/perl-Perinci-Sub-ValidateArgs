@@ -1,7 +1,8 @@
 package Perinci::Sub::ValidateArgs;
 
-# NOIFBUILT
+# AUTHORITY
 # DATE
+# DIST
 # VERSION
 
 use 5.010001;
@@ -13,14 +14,23 @@ use Data::Dmp;
 use Exporter qw(import);
 our @EXPORT_OK = qw(gen_args_validator);
 
+# old name, deprecated
+*gen_args_validator = \&gen_args_validator_from_meta;
+
 # XXX cache key should also contain data_term
 #my %dsah_compile_cache; # key = schema (C<string> or R<refaddr>), value = compilation result
 
 our %SPEC;
 
-$SPEC{gen_args_validator} = {
+$SPEC{gen_args_validator_from_meta} = {
     v => 1.1,
     summary => 'Generate argument validator from Rinci function metadata',
+    description => <<'_',
+
+If you don't intend to reuse the generated validator, you can also use
+`validate_args_using_meta`.
+
+_
     args => {
         meta => {
             schema => 'hash*', # XXX rinci::function_meta
@@ -49,12 +59,12 @@ _
     },
     result_naked => 1,
 };
-sub gen_args_validator {
+sub gen_args_validator_from_meta {
     my %args = @_;
 
     my $meta = $args{meta};
     unless ($meta) {
-        my @caller = caller(1) or die "Call gen_args_validator() inside ".
+        my @caller = caller(1) or die "Call gen_args_validator_from_meta() inside ".
             "your function or provide 'meta'";
         my ($pkg, $func) = $caller[3] =~ /(.+)::(.+)/;
         $meta = ${"$pkg\::SPEC"}{$func}
@@ -232,7 +242,7 @@ sub gen_args_validator {
 
 =head1 SYNOPSIS
 
- use Perinci::Sub::ValidateArgs qw(gen_args_validator);
+ use Perinci::Sub::ValidateArgs qw(gen_args_validator_from_meta);
 
  our %SPEC;
  $SPEC{foo} = {
@@ -250,7 +260,7 @@ sub gen_args_validator {
      'x.func.validate_args' => 1,
  };
  sub foo {
-     state $validator = gen_args_validator();
+     state $validator = gen_args_validator_from_meta();
      my %args = @_;
      if (my $err = $validator->(\%args)) { return $err }
 
@@ -261,7 +271,7 @@ or, if you want the validator to die on failure:
 
  ...
  sub foo {
-     state $validator = gen_args_validator(die => 1);
+     state $validator = gen_args_validator_from_meta(die => 1);
      my %args = @_;
      $validator->(\%args);
 
