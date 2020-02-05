@@ -256,7 +256,7 @@ sub gen_args_validator_from_meta {
     }
 }
 
-$SPEC{validate_args_validator_using_meta} = {
+$SPEC{validate_args_using_meta} = {
     v => 1.1,
     summary => 'Validate arguments using Rinci function metadata',
     description => <<'_',
@@ -264,12 +264,14 @@ $SPEC{validate_args_validator_using_meta} = {
 If you intend to reuse the generated validator, you can also use
 `gen_args_validator_from_meta`.
 
+Note: currently cannot handle `args_as => 'array'`, only `args_as => 'arrayref`.
+
 _
     args => {
         %arg_meta,
         %argopt_die,
         args => {
-            schema => 'hash*',
+            schema => ['any*', of=>['hash*', 'array*']],
             req => 1,
         },
     },
@@ -286,6 +288,8 @@ sub validate_args_using_meta {
 
 1;
 # ABSTRACT: Validate function arguments using schemas in Rinci function metadata
+
+=for Pod::Coverage ^(gen_args_validator)$
 
 =head1 SYNOPSIS
 

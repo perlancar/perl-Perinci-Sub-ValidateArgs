@@ -1,3 +1,12 @@
+0.012   2020-02-05  Released-By: PERLANCAR; Urgency: medium
+
+	- Add function: validate_args_using_meta().
+
+	- [incompatible change] Rename gen_args_validator ->
+	  gen_args_validator_from_meta (old name is deprecated but still works
+	  for now).
+
+
 0.011   2019-04-15  Released-By: PERLANCAR
 
 	- Update to Rinci 1.1.88 (slurpy).
