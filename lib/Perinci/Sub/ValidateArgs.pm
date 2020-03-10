@@ -12,7 +12,11 @@ use warnings;
 use Data::Dmp;
 
 use Exporter qw(import);
-our @EXPORT_OK = qw(gen_args_validator_from_meta validate_args_using_meta);
+our @EXPORT_OK = qw(
+                       gen_args_validator
+                       gen_args_validator_from_meta
+                       validate_args_using_meta
+               );
 
 # old name, deprecated
 *gen_args_validator = \&gen_args_validator_from_meta;
